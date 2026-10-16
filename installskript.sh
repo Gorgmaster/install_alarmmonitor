@@ -13,11 +13,27 @@ SERVICE_DIR="/home/pi/.config/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/alarmmonitor.service"
 
 log() {
-    echo "[INFO] $*"
+    if [[ -t 1 && -n "${TERM:-}" && -z "${NO_COLOR:-}" ]]; then
+        printf '\033[1;36m[INFO]\033[0m %s\n' "$*"
+    else
+        printf '[INFO] %s\n' "$*"
+    fi
+}
+
+section() {
+    if [[ -t 1 && -n "${TERM:-}" && -z "${NO_COLOR:-}" ]]; then
+        printf '\n\033[1;34m========== %s ==========\033[0m\n' "$*"
+    else
+        printf '\n========== %s ==========\n' "$*"
+    fi
 }
 
 die() {
-    echo "[FEHLER] $*" >&2
+    if [[ -t 2 && -n "${TERM:-}" && -z "${NO_COLOR:-}" ]]; then
+        printf '\033[1;31m[FEHLER]\033[0m %s\n' "$*" >&2
+    else
+        printf '[FEHLER] %s\n' "$*" >&2
+    fi
     exit 1
 }
 
@@ -31,6 +47,7 @@ id pi >/dev/null 2>&1 || die "Der Benutzer pi existiert nicht."
 # 1. System aktualisieren
 # ============================================================
 
+section "1/9 System aktualisieren"
 log "Aktualisiere das System."
 apt update
 apt upgrade -y
@@ -39,6 +56,7 @@ apt upgrade -y
 # 2. Benötigte Pakete installieren
 # ============================================================
 
+section "2/9 Benötigte Pakete installieren"
 log "Installiere benötigte Pakete."
 apt install -y \
     chromium \
@@ -54,6 +72,7 @@ CHROMIUM_BIN="$(command -v chromium)" \
 # 3. Deutsche Locale konfigurieren
 # ============================================================
 
+section "3/9 Deutsche Locale konfigurieren"
 log "Konfiguriere de_DE.UTF-8."
 
 if ! grep -qE '^[[:space:]]*de_DE.UTF-8 UTF-8' /etc/locale.gen; then
@@ -67,19 +86,25 @@ if ! grep -qE '^[[:space:]]*de_DE.UTF-8 UTF-8' /etc/locale.gen; then
 fi
 
 locale-gen de_DE.UTF-8
-update-locale LANG=de_DE.UTF-8
+update-locale --reset LANG=de_DE.UTF-8
+raspi-config nonint do_change_locale de_DE.UTF-8
 
 # ============================================================
-# 4. Automatischen Desktop-Login aktivieren
+# 4. Automatischen Desktop-Login und VNC aktivieren
 # ============================================================
 
+section "4/9 Desktop-Login und VNC aktivieren"
 log "Aktiviere automatischen Desktop-Login."
 raspi-config nonint do_boot_behaviour B4
+
+log "Aktiviere den VNC-Server über raspi-config."
+raspi-config nonint do_vnc 0
 
 # ============================================================
 # 5. AMWEB-Adresse abfragen
 # ============================================================
 
+section "5/9 AMWEB-Adresse eingeben"
 while true; do
     read -r -p "AMWEB-Link aus FE2 eingeben: " AMWEB_URL
 
@@ -97,6 +122,7 @@ printf -v AMWEB_URL_SHELL '%q' "$AMWEB_URL"
 # 6. Chromium-Startskript erstellen
 # ============================================================
 
+section "6/9 Chromium-Startskript erstellen"
 log "Erstelle $START_SCRIPT."
 
 cat > "$START_SCRIPT" <<EOF
@@ -116,6 +142,7 @@ exec "$CHROMIUM_BIN" \\
     --disable-features=TranslateUI \\
     --kiosk \\
     --lang=de-DE \\
+    --accept-lang=de-DE,de \
     "\$AMWEB_URL"
 EOF
 
@@ -126,6 +153,7 @@ chown root:root "$START_SCRIPT"
 # 7. systemd-User-Service erstellen
 # ============================================================
 
+section "7/9 systemd-User-Service erstellen"
 log "Erstelle $SERVICE_FILE."
 
 install -d -o pi -g pi -m 0755 "$SERVICE_DIR"
@@ -155,6 +183,7 @@ chmod 644 "$SERVICE_FILE"
 # 8. User-Service aktivieren und starten
 # ============================================================
 
+section "8/9 User-Service aktivieren"
 log "Aktiviere den systemd-User-Service."
 
 loginctl enable-linger pi
@@ -201,7 +230,7 @@ fi
 # 9. Abschluss
 # ============================================================
 
-echo
+section "9/9 Installation abgeschlossen"
 log "Installation abgeschlossen."
 echo "Locale:       de_DE.UTF-8"
 echo "Chromium:     $CHROMIUM_BIN"
