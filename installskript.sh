@@ -150,11 +150,38 @@ EOF
 chmod +x "$START_SCRIPT"
 chown root:root "$START_SCRIPT"
 
+
 # ============================================================
-# 7. systemd-User-Service erstellen
+# 7. Chromium-Service-Worker-Cache bereinigen
 # ============================================================
 
-section "7/9 systemd-User-Service erstellen"
+section "7/10 Chromium-Cache bereinigen"
+
+CHROMIUM_PROFILE="/home/pi/.config/chromium/Default"
+SW_CACHE="$CHROMIUM_PROFILE/Service Worker/CacheStorage"
+
+if [[ -d "$SW_CACHE" ]]; then
+    log "Sichere vorhandenen Service-Worker-Cache."
+
+    BACKUP_DIR="/home/pi/CacheStorage-backup-$(date +%Y%m%d-%H%M%S)"
+    cp -a "$SW_CACHE" "$BACKUP_DIR"
+    chown -R pi:pi "$BACKUP_DIR"
+
+    log "Leere Service-Worker-Cache."
+    find "$SW_CACHE" -mindepth 1 -maxdepth 1 \
+        -exec rm -rf -- {} +
+
+    log "Service-Worker-Cache wurde bereinigt."
+else
+    log "Kein vorhandener Service-Worker-Cache gefunden."
+fi
+
+
+# ============================================================
+# 8. systemd-User-Service erstellen
+# ============================================================
+
+section "8/10 systemd-User-Service erstellen"
 log "Erstelle $SERVICE_FILE."
 
 install -d -o pi -g pi -m 0755 "$SERVICE_DIR"
@@ -181,10 +208,10 @@ chown pi:pi "$SERVICE_FILE"
 chmod 644 "$SERVICE_FILE"
 
 # ============================================================
-# 8. User-Service aktivieren und starten
+# 9. User-Service aktivieren und starten
 # ============================================================
 
-section "8/9 User-Service aktivieren"
+section "9/10 User-Service aktivieren"
 log "Aktiviere den systemd-User-Service."
 
 loginctl enable-linger pi
@@ -228,10 +255,10 @@ else
 fi
 
 # ============================================================
-# 9. Abschluss
+# 10. Abschluss
 # ============================================================
 
-section "9/9 Installation abgeschlossen"
+section "10/10 Installation abgeschlossen"
 log "Installation abgeschlossen."
 echo "Locale:       de_DE.UTF-8"
 echo "Chromium:     $CHROMIUM_BIN"
