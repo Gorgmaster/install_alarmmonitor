@@ -138,6 +138,7 @@ unclutter -idle 0 -pi &
 exec "$CHROMIUM_BIN" \\
     --noerrdialogs \\
     --disable-infobars \\
+    --password-store=basic \\
     --disable-session-crashed-bubble \\
     --disable-features=TranslateUI \\
     --kiosk \\
